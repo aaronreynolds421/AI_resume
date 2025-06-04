@@ -11,6 +11,6 @@ app.get("/api", (req, res) => {
     message: "Hello World",
   });
 });
-app.listen(PORT, () => {
-  console.log(`Server listening on ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server listening on ${port}`);
 });
