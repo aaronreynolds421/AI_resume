@@ -8,6 +8,22 @@ const Home = () => {
   const [currentTechnologies, setCurrentTechnologies] = useState("");
   const [headshot, setHeadshot] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [jobInfo, setJobInfo] = useState([{ name: "", position: "" }]);
+
+  const handleAddJob = () =>
+    setJobInfo([...jobInfoInfo, { name: "", position: "" }]); //updates the users input by using ... to copy the the existing array and puts it into a new array
+  // to then append { name: "", position: "" } to the end of the new array
+
+  const handleRemoveJob = (index) => {
+    setJobInfo(jobInfo.filter((_, i) => i !== index)); // this function handles the removal of the job info with the press of a button.
+  };
+
+  const updateJob = (e, index) => {
+    const { name, value } = e.target;
+    const list = [...jobInfo];
+    list[index][name] = value;
+    setJobInfo(list); // this function handles the updating of the job info.
+  };
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
