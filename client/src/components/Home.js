@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import Loading from "./Loading";
+import axios from "axios";
 
-const Home = () => {
+const Home = ({ setResult }) => {
   const [fullName, setFullName] = useState("");
   const [currentPosition, setCurrentPosition] = useState("");
   const [currentLength, setCurrentLength] = useState(1);
@@ -27,15 +28,24 @@ const Home = () => {
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
-    console.log({
-      fullName,
-      currentPosition,
-      currentLength,
-      currentTechnologies,
-      headshot,
-    });
+
+    const formData = new FormData();
+    formData.append("fullName", fullName);
+    formData.append("currentPosition", currentPosition);
+    formData.append("currentLength", currentLength);
+    formData.append("currentTechnologies", currentTechnologies);
+    formData.append("workHistory", JSON.stringify(jobInfo));
+    axios
+      .post("https://localHost:4000/resume/create")
+      .then((res) => {
+        if (res.data.message) {
+          console.log(res.data.data);
+          navigate("/resume");
+        }
+      })
+      .catch((err) => console.error(err));
     setLoading(true);
-  };
+  }; //This creates a key pair representing the form fields which are sent to API endpoint
   if (loading) {
     return <Loading />;
   }
