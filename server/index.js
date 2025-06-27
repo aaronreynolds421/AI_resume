@@ -3,39 +3,75 @@ const cors = require("cors");
 const app = express();
 const port = 4000;
 const database = [];
-const { Configuration, OpenAIApi } = require("openai");
+const { OpenAI } = require("openai");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 
-const configuration = new Configuration({
+app.use(express.urlencoded({ extended: true }));
+app.use("/uploads", express.static("uploads"));
+app.use(express.json());
+app.use(cors());
+
+const uploadPath = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadPath)) {
+  fs.mkdirSync(uploadPath);
+  console.log("Created uploads folder at", uploadPath);
+}
+const generateID = () => Math.random().toString(36).substring(2, 10);
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const filename = `${Date.now()}-${file.originalname}`;
+    console.log("Saving file as:", filename);
+    cb(null, filename);
+  },
+});
+const upload = multer({ storage });
+const openai = new OpenAI({
   apiKey:
     "<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></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>",
 });
 
-const openai = new OpenAIApi(configuration);
+async function GPTFunction({
+  fullName,
+  currentPosition,
+  currentLength,
+  currentTechnologies,
+  workHistory,
+}) {
+  const workHistoryString = JSON.parse(workHistory)
+    .map((job, i) => `Job ${i + 1}: ${job.position} at ${job.name}`)
+    .join("\n");
 
-const GPTFunction = async (text) => {
-  const response = await openai.createCompletion({
-    model: "text-davinci-003",
-    prompt: text,
-    temperature: 0.6,
-    max_tokens: 250,
-    top_p: 1,
-    frequency_penalty: 1,
-    presence_penalty: 1,
-  });
-  return response.data.choices[0].text;
-};
+  const prompt = `
+Generate a professional resume for the following person:
 
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-app.use(cors());
-app.get("/api", (req, res) => {
-  res.json({
-    message: "Hello World",
+Name: ${fullName}
+Current Position: ${currentPosition}
+Years in Position: ${currentLength}
+Technologies: ${currentTechnologies}
+Work History:
+${workHistoryString}
+
+Only include relevant and professional resume content.
+`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4", // or "gpt-3.5-turbo"
+    messages: [
+      { role: "system", content: "You are a professional resume writer." },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.7,
   });
-});
-app.listen(port, () => {
-  console.log(`Server listening on ${port}`);
-});
+
+  return response.choices[0].message.content;
+}
+
 app.post("/resume/create", upload.single("headshotImage"), async (req, res) => {
   const {
     fullName,
@@ -44,12 +80,16 @@ app.post("/resume/create", upload.single("headshotImage"), async (req, res) => {
     currentTechnologies,
     workHistory,
   } = req.body;
+  const imagePath = req.file?.path;
 
+  if (!imagePath) {
+    return res.status(400).json({ message: "Headshot is required" });
+  }
   const workArray = JSON.parse(workHistory);
   const newEntry = {
     id: generateID(),
     fullName,
-    image_url: `http://localhost:3000/uploads/${req.file.filename}`,
+    image_url: `http://localhost:4000/uploads/${req.file.filename}`,
     currentPosition,
     currentLength,
     currentTechnologies,
@@ -86,8 +126,7 @@ app.post("/resume/create", upload.single("headshotImage"), async (req, res) => {
     message: "Request successful!",
     data,
   });
-
-  app.listen(PORT, () => {
-    console.log(`Server listening on ${PORT}`);
-  });
+});
+app.listen(port, () => {
+  console.log(`Server listening on ${port}`);
 });

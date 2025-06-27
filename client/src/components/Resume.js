@@ -2,7 +2,8 @@ import React, { useRef } from "react";
 import ErrorPage from "./ErrorPage";
 import { useReactToPrint } from "react-to-print";
 
-const Resume = (result) => {
+const Resume = ({result}) => {
+  const componentRef = useRef();
   const handlePrint = useReactToPrint({
     content: () => componentRef.current,
     documentTitle: `${result.fullName} Resume`,
@@ -12,9 +13,9 @@ const Resume = (result) => {
   const replaceWithBreak = (string) => {
     return string.replace(/\n/g, "<br/>");
   };
-  const componentRef = useRef();
+  
   // returns an error page if the result object is empty
-  if (JSON.stringify(result) == "{}") {
+  if (JSON.stringify(result) === "{}") {
     return <ErrorPage />;
   }
 

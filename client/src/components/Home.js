@@ -29,24 +29,34 @@ const Home = ({ setResult }) => {
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
-
+    setLoading(true);
     const formData = new FormData();
+    formData.append("headshotImage", headshot, headshot.name);
     formData.append("fullName", fullName);
     formData.append("currentPosition", currentPosition);
     formData.append("currentLength", currentLength);
     formData.append("currentTechnologies", currentTechnologies);
     formData.append("workHistory", JSON.stringify(jobInfo));
     axios
-      .post("https://localHost:3000/resume/create")
+      .post("http://localhost:4000/resume/create", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      })
       .then((res) => {
         if (res.data.message) {
-          console.log(res.data.data);
+          setResult(res.data.data); // Optional if needed
           navigate("/resume");
         }
       })
-      .catch((err) => console.error(err));
-    setLoading(true);
-  }; //This creates a key pair representing the form fields which are sent to API endpoint
+      .catch((err) => {
+        console.error(err);
+        alert("Something went wrong. Please try again.");
+      })
+      .finally(() => {
+        setLoading(false); // Always stop loading, whether success or error
+      });
+  };
   if (loading) {
     return <Loading />;
   }
@@ -104,7 +114,15 @@ const Home = ({ setResult }) => {
             />
           </div>
         </div>
-
+        <label htmlFor="photo">Upload your headshot image</label>
+        <input
+          type="file"
+          name="photo"
+          required
+          id="photo"
+          accept="image/x-png,image/jpeg"
+          onChange={(e) => setHeadshot(e.target.files[0])}
+        />
         <h3>Jobs you have worked</h3>
         <form>
           {/*--- other UI tags --- */}
