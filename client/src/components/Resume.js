@@ -1,17 +1,23 @@
-import React from "react";
+import React, { useRef } from "react";
 import ErrorPage from "./ErrorPage";
+import { useReactToPrint } from "react-to-print";
 
 const Resume = (result) => {
+  const handlePrint = useReactToPrint({
+    content: () => componentRef.current,
+    documentTitle: `${result.fullName} Resume`,
+    onAfterPrint: () => alert("Great Success!"),
+  });
   // replaces the new line with a break tag
   const replaceWithBreak = (string) => {
     return string.replace(/\n/g, "<br/>");
   };
-
+  const componentRef = useRef();
   // returns an error page if the result object is empty
   if (JSON.stringify(result) == "{}") {
     return <ErrorPage />;
   }
-  const handlePrint = () => alert("Starting to print");
+
   return (
     <>
       <button onClick={handlePrint}>Print page</button>
@@ -64,3 +70,4 @@ const Resume = (result) => {
     </>
   );
 };
+export default Resume;

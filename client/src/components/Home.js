@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Loading from "./Loading";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const Home = ({ setResult }) => {
   const [fullName, setFullName] = useState("");
@@ -10,7 +11,7 @@ const Home = ({ setResult }) => {
   const [headshot, setHeadshot] = useState(null);
   const [loading, setLoading] = useState(false);
   const [jobInfo, setJobInfo] = useState([{ name: "", position: "" }]);
-
+  const navigate = useNavigate();
   const handleAddJob = () =>
     setJobInfo([...jobInfo, { name: "", position: "" }]); //updates the users input by using ... to copy the the existing array and puts it into a new array
   // to then append { name: "", position: "" } to the end of the new array
@@ -36,7 +37,7 @@ const Home = ({ setResult }) => {
     formData.append("currentTechnologies", currentTechnologies);
     formData.append("workHistory", JSON.stringify(jobInfo));
     axios
-      .post("https://localHost:4000/resume/create")
+      .post("https://localHost:3000/resume/create")
       .then((res) => {
         if (res.data.message) {
           console.log(res.data.data);
