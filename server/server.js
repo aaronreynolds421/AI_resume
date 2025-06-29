@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const app = express();
@@ -8,11 +9,11 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-require("dotenv").config({ path: "../.env" });
 
-app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static("uploads"));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static("public"));
+app.use("/uploads", express.static("uploads"));
 app.use(cors({ origin: "http://localhost:3000" }));
 
 const uploadPath = path.join(__dirname, "uploads");
@@ -24,15 +25,14 @@ const generateID = () => Math.random().toString(36).substring(2, 10);
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadPath);
+    cb(null, 'uploads/'); // Ensure this folder exists
   },
   filename: (req, file, cb) => {
-    const filename = `${Date.now()}-${file.originalname}`;
-    console.log("Saving file as:", filename);
-    cb(null, filename);
-  },
+    cb(null, Date.now() + '-' + file.originalname); // Unique filename
+  }
 });
-const upload = multer({ storage });
+const upload = multer({ storage: storage });
+
 
 async function GPTFunction({
   fullName,
@@ -70,7 +70,7 @@ Only include relevant and professional resume content.
   return response.choices[0].message.content;
 }
 
-app.post("/resume/create", upload.single("headshotImage"), async (req, res) => {
+app.post("/api/resume", upload.single("headshotImage"), async (req, res) => {
   const {
     fullName,
     currentPosition,
@@ -80,9 +80,10 @@ app.post("/resume/create", upload.single("headshotImage"), async (req, res) => {
   } = req.body;
   const imagePath = req.file?.path;
 
-  if (!imagePath) {
-    return res.status(400).json({ message: "Headshot is required" });
+  if (!fullName || !currentPosition) {
+    return res.status(400).json({ message: "missing required fields" });
   }
+  const headshotPath = req.file ? req.file.path : null;
   const workArray = JSON.parse(workHistory);
   const newEntry = {
     id: generateID(),
@@ -92,7 +93,9 @@ app.post("/resume/create", upload.single("headshotImage"), async (req, res) => {
     currentLength,
     currentTechnologies,
     workHistory: workArray,
+    headshotPath
   };
+  
 
   //Prompts to pass to the gpt function
 

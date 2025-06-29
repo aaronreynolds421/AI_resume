@@ -26,17 +26,23 @@ const Home = ({ setResult }) => {
     list[index][name] = value;
     setJobInfo(list); // this function handles the updating of the job info.
   };
-
+  const safeJobInfo = jobInfo || [];
   const handleCreateResume = (e) => {
     e.preventDefault();
     setLoading(true);
     const formData = new FormData();
-    formData.append("headshotImage", headshot, headshot.name);
-    formData.append("fullName", fullName);
-    formData.append("currentPosition", currentPosition);
-    formData.append("currentLength", currentLength);
-    formData.append("currentTechnologies", currentTechnologies);
+    formData.append(
+      "headshotImage",
+      headshot,
+      headshot.name,
+      headshot?.name || "headshoot.jpg"
+    );
+    formData.append("fullName", fullName || "");
+    formData.append("currentPosition", currentPosition || "");
+    formData.append("currentLength", currentLength || "");
+    formData.append("currentTechnologies", currentTechnologies || "");
     formData.append("workHistory", JSON.stringify(jobInfo));
+    console.log("jobInfo:", safeJobInfo);
     axios
       .post("http://localhost:5000/api/resume", formData, {
         headers: {
@@ -50,7 +56,7 @@ const Home = ({ setResult }) => {
         }
       })
       .catch((err) => {
-        console.error(err);
+        console.error("Error:", err.response ? err.response.data : err.message);
         alert("Something went wrong. Please try again.");
       })
       .finally(() => {
