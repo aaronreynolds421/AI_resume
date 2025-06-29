@@ -1,17 +1,15 @@
 {
   "version": "1.0.0",
-  "description": "",
-  "main": "server/index.js",
   "scripts": {
-    "start": "node server/index.js",
-    "server": "nodemon index.js",
-    "client": "npm start --prefix client",
-    "dev": "concurrently \"npm run server\" \"npm run client\""
+    "start:client": "cd client && npm start",
+    "start:server": "cd server && nodemon server.js",
+    "start": "concurrently --prefix \"{name}\" \"npm run start:client\" \"npm run start:server\""
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
-    "concurrently": "^9.2.0"
+    "concurrently": "^9.0.0",
+    "nodemon": "^3.1.10"
+  },
+  "dependencies": {
+    "cors": "^2.8.5"
   }
 }

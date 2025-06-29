@@ -27,7 +27,7 @@ const Home = ({ setResult }) => {
     setJobInfo(list); // this function handles the updating of the job info.
   };
 
-  const handleFormSubmit = (e) => {
+  const handleCreateResume = (e) => {
     e.preventDefault();
     setLoading(true);
     const formData = new FormData();
@@ -38,7 +38,7 @@ const Home = ({ setResult }) => {
     formData.append("currentTechnologies", currentTechnologies);
     formData.append("workHistory", JSON.stringify(jobInfo));
     axios
-      .post("http://localhost:4000/resume/create", formData, {
+      .post("http://localhost:5000/api/resume", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -65,7 +65,7 @@ const Home = ({ setResult }) => {
       <h1>Resume Builder</h1>
       <p>Generate a resume with ChatGPT in a few seconds</p>
       <form
-        onSubmit={handleFormSubmit}
+        onSubmit={handleCreateResume}
         method="POST" //used for sending data to a server to create or update a resource
         encType="multipart/form-data" //forms is crucial when dealing with file uploads
       >
@@ -124,44 +124,44 @@ const Home = ({ setResult }) => {
           onChange={(e) => setHeadshot(e.target.files[0])}
         />
         <h3>Jobs you have worked</h3>
-        <form>
-          {/*--- other UI tags --- */}
-          {jobInfo.map((Job, index) => (
-            <div className="nestedContainer" key={index}>
-              <div className="companies">
-                <label htmlFor="name">Company Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  required
-                  onChange={(e) => handleUpdateJob(e, index)}
-                />
-              </div>
-              <div className="companies">
-                <label htmlFor="position">Position Held</label>
-                <input
-                  type="text"
-                  name="position"
-                  required
-                  onChange={(e) => handleUpdateJob(e, index)}
-                />
-              </div>
 
-              <div className="btn__group">
-                {jobInfo.length - 1 === index && jobInfo.length < 4 && (
-                  <button id="addBtn" onClick={handleAddJob}>
-                    Add
-                  </button>
-                )}
-                {jobInfo.length > 1 && (
-                  <button id="deleteBtn" onClick={() => handleRemoveJob(index)}>
-                    Del
-                  </button>
-                )}
-              </div>
+        {/*--- other UI tags --- */}
+        {jobInfo.map((Job, index) => (
+          <div className="nestedContainer" key={index}>
+            <div className="companies">
+              <label htmlFor="name">Company Name</label>
+              <input
+                type="text"
+                name="name"
+                required
+                onChange={(e) => handleUpdateJob(e, index)}
+              />
             </div>
-          ))}
-        </form>
+            <div className="companies">
+              <label htmlFor="position">Position Held</label>
+              <input
+                type="text"
+                name="position"
+                required
+                onChange={(e) => handleUpdateJob(e, index)}
+              />
+            </div>
+
+            <div className="btn__group">
+              {jobInfo.length - 1 === index && jobInfo.length < 4 && (
+                <button id="addBtn" onClick={handleAddJob}>
+                  Add
+                </button>
+              )}
+              {jobInfo.length > 1 && (
+                <button id="deleteBtn" onClick={() => handleRemoveJob(index)}>
+                  Del
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+
         <button>Create Resume</button>
       </form>
     </div>
