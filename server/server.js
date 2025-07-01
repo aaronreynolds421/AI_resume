@@ -25,14 +25,13 @@ const generateID = () => Math.random().toString(36).substring(2, 10);
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // Ensure this folder exists
+    cb(null, "uploads/"); // Ensure this folder exists
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname); // Unique filename
-  }
+    cb(null, Date.now() + "-" + file.originalname); // Unique filename
+  },
 });
 const upload = multer({ storage: storage });
-
 
 async function GPTFunction({
   fullName,
@@ -41,10 +40,24 @@ async function GPTFunction({
   currentTechnologies,
   workHistory,
 }) {
-  const workHistoryString = JSON.parse(workHistory)
-    .map((job, i) => `Job ${i + 1}: ${job.position} at ${job.name}`)
-    .join("\n");
-
+  let workHistoryString = "";
+  try {
+    if (workHistory) {
+      const workHistoryArray = JSON.parse(workHistory);
+      if (Array.isArray(workHistoryArray)) {
+        workHistoryString = workHistoryArray
+          .map((job, i) => `Job ${i + 1}: ${job.position} at ${job.name}`)
+          .join("\n");
+      } else {
+        console.error("workHistory is not an array:", workHistory);
+      }
+    } else {
+      console.error("workHistory is undefined or empty");
+    }
+  } catch (error) {
+    console.error("Error parsing workHistory:", error.message);
+    workHistoryString = "No work history provided";
+  }
   const prompt = `
 Generate a professional resume for the following person:
 
@@ -59,15 +72,21 @@ Only include relevant and professional resume content.
 `;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4", // or "gpt-3.5-turbo"
+    model: "gpt-4o", // or "gpt-3.5-turbo"
     messages: [
       { role: "system", content: "You are a professional resume writer." },
       { role: "user", content: prompt },
     ],
     temperature: 0.7,
+    response_format: { type: "json_object" }, // Enforce JSON output (supported by gpt-4o)
   });
 
-  return response.choices[0].message.content;
+  const content = response.choices[0].message.content;
+  if (!content) {
+    throw new Error("OpenAI response content is empty");
+  }
+  console.log("OpenAI response content:", content);
+  return JSON.parse(content); // Parse the JSON response
 }
 
 app.post("/api/resume", upload.single("headshotImage"), async (req, res) => {
@@ -93,9 +112,8 @@ app.post("/api/resume", upload.single("headshotImage"), async (req, res) => {
     currentLength,
     currentTechnologies,
     workHistory: workArray,
-    headshotPath
+    headshotPath,
   };
-  
 
   //Prompts to pass to the gpt function
 
