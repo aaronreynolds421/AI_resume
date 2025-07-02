@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Loading from "./Loading";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { debounce } from "lodash";
 
 const Home = ({ setResult }) => {
   const [fullName, setFullName] = useState("");
@@ -27,42 +28,50 @@ const Home = ({ setResult }) => {
     setJobInfo(list); // this function handles the updating of the job info.
   };
   const safeJobInfo = jobInfo || [];
-  const handleCreateResume = (e) => {
-    e.preventDefault();
-    setLoading(true);
-    const formData = new FormData();
-    formData.append(
-      "headshotImage",
-      headshot,
-      headshot.name,
-      headshot?.name || "headshoot.jpg"
-    );
-    formData.append("fullName", fullName || "");
-    formData.append("currentPosition", currentPosition || "");
-    formData.append("currentLength", currentLength || "");
-    formData.append("currentTechnologies", currentTechnologies || "");
-    formData.append("workHistory", JSON.stringify(jobInfo));
-    console.log("jobInfo:", safeJobInfo);
-    axios
-      .post("http://localhost:5000/api/resume", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      })
-      .then((res) => {
-        if (res.data.message) {
-          setResult(res.data.data); // Optional if needed
-          navigate("/resume");
-        }
-      })
-      .catch((err) => {
-        console.error("Error:", err.response ? err.response.data : err.message);
-        alert("Something went wrong. Please try again.");
-      })
-      .finally(() => {
-        setLoading(false); // Always stop loading, whether success or error
-      });
-  };
+
+  const handleCreateResume = debounce(
+    (e) => {
+      e.preventDefault();
+      setLoading(true);
+      const formData = new FormData();
+      formData.append(
+        "headshotImage",
+        headshot,
+        headshot.name,
+        headshot?.name || "headshoot.jpg"
+      );
+      formData.append("fullName", fullName || "");
+      formData.append("currentPosition", currentPosition || "");
+      formData.append("currentLength", currentLength || "");
+      formData.append("currentTechnologies", currentTechnologies || "");
+      formData.append("workHistory", JSON.stringify(jobInfo));
+      console.log("jobInfo:", safeJobInfo);
+      axios
+        .post("http://localhost:5000/api/resume", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        })
+        .then((res) => {
+          if (res.data.message) {
+            setResult(res.data.data); // Optional if needed
+            navigate("/resume");
+          }
+        })
+        .catch((err) => {
+          console.error(
+            "Error:",
+            err.response ? err.response.data : err.message
+          );
+          alert("Something went wrong. Please try again.");
+        })
+        .finally(() => {
+          setLoading(false); // Always stop loading, whether success or error
+        });
+    },
+    1000,
+    { leading: true, trailing: false }
+  );
   if (loading) {
     return <Loading />;
   }
@@ -168,7 +177,9 @@ const Home = ({ setResult }) => {
           </div>
         ))}
 
-        <button>Create Resume</button>
+        <button disabled={loading}>
+          {loading ? "Generating..." : "Create Resume"}
+        </button>
       </form>
     </div>
   );

@@ -31,33 +31,57 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + "-" + file.originalname); // Unique filename
   },
 });
-const upload = multer({ storage: storage });
+const upload = multer({ storage: storage }).fields([
+  { name: "headshotImage", maxCount: 1 },
+  { name: "fullName", maxCount: 1 },
+  { name: "currentPosition", maxCount: 1 },
+  { name: "currentLength", maxCount: 1 },
+  { name: "currentTechnologies", maxCount: 1 },
+  { name: "workHistory", maxCount: 1 },
+]);
 
 async function GPTFunction({
-  fullName,
-  currentPosition,
-  currentLength,
-  currentTechnologies,
-  workHistory,
+  fullName = "Unknown",
+  currentPosition = "N/A",
+  currentLength = "N/A",
+  currentTechnologies = "None",
+  workHistory = "[]",
 }) {
-  let workHistoryString = "";
+  console.log("Entering GPTFunction at:", new Date().toISOString());
+  console.log("GPTFunction received inputs:", {
+    fullName,
+    currentPosition,
+    currentLength,
+    currentTechnologies,
+    workHistory,
+  });
+
+  let workHistoryString = " No work history provided";
+  let workArray = [];
   try {
-    if (workHistory) {
-      const workHistoryArray = JSON.parse(workHistory);
-      if (Array.isArray(workHistoryArray)) {
-        workHistoryString = workHistoryArray
-          .map((job, i) => `Job ${i + 1}: ${job.position} at ${job.name}`)
+    if (
+      workHistory &&
+      typeof workHistory === "string" &&
+      workHistory.trim() !== ""
+    ) {
+      workArray = JSON.parse(workHistory);
+      if (Array.isArray(workArray) && workArray.length > 0) {
+        workHistoryString = workArray
+          .map(
+            (job, i) =>
+              `Job ${i + 1}: ${job.position || "Unknown"} at ${
+                job.name || "Unknown"
+              }`
+          )
           .join("\n");
       } else {
-        console.error("workHistory is not an array:", workHistory);
+        console.warn("workHistory is not a valid array:", workHistory);
       }
-    } else {
-      console.error("workHistory is undefined or empty");
     }
   } catch (error) {
-    console.error("Error parsing workHistory:", error.message);
-    workHistoryString = "No work history provided";
+    console.error("Error parsing workHistory:", error.message, error.stack);
   }
+
   const prompt = `
 Generate a professional resume for the following person:
 
@@ -68,46 +92,81 @@ Technologies: ${currentTechnologies}
 Work History:
 ${workHistoryString}
 
-Only include relevant and professional resume content.
+Return a JSON object with the following fields:
+- "description": A 100-word description for the top of the resume (first person).
+- "points": An array of 10 strings listing what the person is good at.
+- "companies": An array of objects with "name" and "description" (50 words each, first person) for each company in the work history.
 `;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o", // or "gpt-3.5-turbo"
-    messages: [
-      { role: "system", content: "You are a professional resume writer." },
-      { role: "user", content: prompt },
-    ],
-    temperature: 0.7,
-    response_format: { type: "json_object" }, // Enforce JSON output (supported by gpt-4o)
-  });
+  try {
+    console.log("Calling OpenAI API at:", new Date().toISOString());
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo", // Switched to lighter model to reduce quota usage
+      messages: [
+        { role: "system", content: "You are a professional resume writer." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.7,
+    });
 
-  const content = response.choices[0].message.content;
-  if (!content) {
-    throw new Error("OpenAI response content is empty");
+    const content = response.choices[0].message.content;
+    if (!content) {
+      throw new Error("OpenAI response content is empty");
+    }
+    console.log("OpenAI response content:", content);
+    return JSON.parse(content);
+  } catch (error) {
+    console.error("GPTFunction error:", error.message, error.stack);
+    if (error.response && error.response.status === 429) {
+      console.error(
+        "Rate limit exceeded. Please check your OpenAI plan at https://platform.openai.com/account/billing"
+      );
+    }
+    throw new Error("Failed to generate resume");
   }
-  console.log("OpenAI response content:", content);
-  return JSON.parse(content); // Parse the JSON response
 }
 
-app.post("/api/resume", upload.single("headshotImage"), async (req, res) => {
-  const {
-    fullName,
-    currentPosition,
-    currentLength,
-    currentTechnologies,
-    workHistory,
-  } = req.body;
-  const imagePath = req.file?.path;
+app.post("/api/resume", upload, async (req, res) => {
+  console.log("Received /api/resume request at:", new Date().toISOString());
+  console.log("Request headers:", req.headers);
+  console.log("Request body:", req.body);
+  console.log("Request files:", req.files);
+  console.log("Extracted workHistory:", req.body.workHistory);
 
-  if (!fullName || !currentPosition) {
-    return res.status(400).json({ message: "missing required fields" });
+  const {
+    fullName = "Unknown",
+    currentPosition = "N/A",
+    currentLength = "N/A",
+    currentTechnologies = "None",
+    workHistory = "[]",
+  } = req.body || {};
+
+  let workArray = [];
+  try {
+    if (
+      workHistory &&
+      typeof workHistory === "string" &&
+      workHistory.trim() !== ""
+    ) {
+      workArray = JSON.parse(workHistory);
+      if (!Array.isArray(workArray)) {
+        console.warn("workHistory is not a valid array:", workHistory);
+        workArray = [];
+      }
+    }
+  } catch (error) {
+    console.error("Error parsing workHistory:", error.message, error.stack);
+    workArray = [];
   }
-  const headshotPath = req.file ? req.file.path : null;
-  const workArray = JSON.parse(workHistory);
+  const headshotPath = req.files?.headshotImage?.[0]?.path || null;
+  const image_url = req.files?.headshotImage?.[0]?.filename
+    ? `http://localhost:5000/uploads/${req.files.headshotImage[0].filename}`
+    : null;
+
   const newEntry = {
     id: generateID(),
     fullName,
-    image_url: `http://localhost:5000/uploads/${req.file.filename}`,
+    image_url,
     currentPosition,
     currentLength,
     currentTechnologies,
@@ -115,35 +174,59 @@ app.post("/api/resume", upload.single("headshotImage"), async (req, res) => {
     headshotPath,
   };
 
+  console.log("newEntry created:", newEntry);
+
   //Prompts to pass to the gpt function
 
-  const prompt1 = `I am writing a resume, my dtails are \n name: ${fullName} \n role: ${currentPosition} (${currentLength} years). \n I write in the technolegies: ${currentTechnologies}. Can you write a 100 words description for the top of the resume(first person writing)?`; //the backticks allow for multiline strings
-  const prompt2 = `I am writing a resume, my dtails are \n name: ${fullName} \n role: ${currentPosition} (${currentLength} years). \n I write in the technolegies: ${currentTechnologies}. Can you write 10 points for a resume on what I am good at?`;
-  const remainderText = () => {
-    let stringText = "";
-    for (let i = 0; i < workArray.length; i++) {
-      stringText += ` ${workArray[i].name} as a ${workArray[i].position}.`;
-    }
-    return stringText;
-  }; //this loops throught the workarray and converts it into a string
-  const prompt3 = `I am writing a resume, my dtails are \n name: ${fullName} \n role: ${currentPosition} (${currentLength} years). \n During my years I worked at ${
-    workArray.length
-  } companies. ${remainderText()} \n Can you write me 50 words for each company in numbers of my succession in the company (in first person)?`;
+  //const prompt1 = `I am writing a resume, my dtails are \n name: ${fullName} \n role: ${currentPosition} (${currentLength} years). \n I write in the technolegies: ${currentTechnologies}. Can you write a 100 words description for the top of the resume(first person writing)?`; //the backticks allow for multiline strings
+  // const prompt2 = `I am writing a resume, my dtails are \n name: ${fullName} \n role: ${currentPosition} (${currentLength} years). \n I write in the technolegies: ${currentTechnologies}. Can you write 10 points for a resume on what I am good at?`;
+  // const remainderText = () => {
+  //   let stringText = "";
+  ////   for (let i = 0; i < workArray.length; i++) {
+  //     stringText += ` ${workArray[i].name} as a ${workArray[i].position}.`;
+  //    }
+  //   return stringText;
+  //  }; //this loops throught the workarray and converts it into a string
+  // const prompt3 = `I am writing a resume, my dtails are \n name: ${fullName} \n role: ${currentPosition} (${currentLength} years). \n During my years I worked at ${
+  //    workArray.length
+  //  } companies. ${remainderText()} \n Can you write me 50 words for each company in numbers of my succession in the company (in first person)?`;
   //this generates the result
 
-  const objectives = await GPTFunction(prompt1);
-  const kPoints = await GPTFunction(prompt2);
-  const jobResp = await GPTFunction(promtp3);
+  // const objectives = await GPTFunction(prompt1);
+  // const kPoints = await GPTFunction(prompt2);
+  // const jobResp = await GPTFunction(promtp3);
 
   // creates an object
 
-  const chatgptData = { objectives, kPoints, jobResp };
-  const data = { ...newEntry, ...chatgptData };
-  database.push(data);
+  // const chatgptData = { objectives, kPoints, jobResp };
+  ///  const data = { ...newEntry, ...chatgptData };
+  //database.push(data);
 
-  res.json({
-    message: "Request successful!",
-    data,
-  });
+  // res.json({
+  //   message: "Request successful!",
+  //   data,
+  try {
+    console.log("Calling GPTFunction");
+    const chatgptData = await GPTFunction({
+      fullName,
+      currentPosition,
+      currentLength,
+      currentTechnologies,
+      workHistory,
+    });
+    const data = { ...newEntry, ...chatgptData };
+    database.push(data);
+
+    res.json({
+      message: "Request successful!",
+      data,
+    });
+  } catch (error) {
+    console.error("Error in /api/resume:", error.message, error.stack);
+    res
+      .status(500)
+      .json({ error: "Failed to generate resume", details: error.message });
+  }
 });
+
 app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
