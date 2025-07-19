@@ -2,18 +2,20 @@ import React, { useRef } from "react";
 import ErrorPage from "./ErrorPage";
 import { useReactToPrint } from "react-to-print";
 
-const Resume = ({result}) => {
+const Resume = ({ result }) => {
   const componentRef = useRef();
   const handlePrint = useReactToPrint({
     content: () => componentRef.current,
     documentTitle: `${result.fullName} Resume`,
     onAfterPrint: () => alert("Great Success!"),
   });
+  console.log("Resume:", result);
   // replaces the new line with a break tag
-  const replaceWithBreak = (string) => {
-    return string.replace(/\n/g, "<br/>");
-  };
-  
+  function replaceWithBreak(text) {
+    if (typeof text !== "string") return ""; // Check if text is a string
+    return text.replace(/\n/g, "<br />");
+  }
+
   // returns an error page if the result object is empty
   if (JSON.stringify(result) === "{}") {
     return <ErrorPage />;

@@ -5,7 +5,10 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const database = [];
 const { OpenAI } = require("openai");
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: "https://openrouter.ai/api/v1",
+});
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
@@ -39,6 +42,11 @@ const upload = multer({ storage: storage }).fields([
   { name: "currentTechnologies", maxCount: 1 },
   { name: "workHistory", maxCount: 1 },
 ]);
+const Bottleneck = require("bottleneck"); // Install bottleneck: npm install bottleneck
+const limiter = new Bottleneck({
+  minTime: 1000, // 1 second between requests
+  maxConcurrent: 1,
+});
 
 async function GPTFunction({
   fullName = "Unknown",
@@ -83,47 +91,80 @@ async function GPTFunction({
   }
 
   const prompt = `
-Generate a professional resume for the following person:
-
-Name: ${fullName}
-Current Position: ${currentPosition}
-Years in Position: ${currentLength}
-Technologies: ${currentTechnologies}
-Work History:
-${workHistoryString}
-
-Return a JSON object with the following fields:
-- "description": A 100-word description for the top of the resume (first person).
-- "points": An array of 10 strings listing what the person is good at.
-- "companies": An array of objects with "name" and "description" (50 words each, first person) for each company in the work history.
+Create a resume for ${fullName}, ${currentPosition}, with ${currentLength} years using ${currentTechnologies}.
+Work History: ${workHistoryString}
+Return JSON:
+- "description": 100-word first-person summary.
+- "points": 10 skill strings.
+- "companies": Array of {name, description (50 words, first-person)} per company.
 `;
+  const maxRetries = 3;
+  let retryCount = 0;
 
-  try {
-    console.log("Calling OpenAI API at:", new Date().toISOString());
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo", // Switched to lighter model to reduce quota usage
-      messages: [
-        { role: "system", content: "You are a professional resume writer." },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.7,
-    });
-
-    const content = response.choices[0].message.content;
-    if (!content) {
-      throw new Error("OpenAI response content is empty");
-    }
-    console.log("OpenAI response content:", content);
-    return JSON.parse(content);
-  } catch (error) {
-    console.error("GPTFunction error:", error.message, error.stack);
-    if (error.response && error.response.status === 429) {
-      console.error(
-        "Rate limit exceeded. Please check your OpenAI plan at https://platform.openai.com/account/billing"
+  async function attemptApiCall() {
+    try {
+      console.log("Calling OpenAI API at:", new Date().toISOString());
+      const response = await limiter.schedule(() =>
+        openai.chat.completions.create({
+          model: "openai/gpt-3.5-turbo",
+          messages: [
+            {
+              role: "system",
+              content: "You are a professional resume writer.",
+            },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.5,
+        })
       );
+
+      const content = response.choices[0].message.content;
+      if (!content) {
+        throw new Error("OpenAI response content is empty");
+      }
+      console.log("OpenAI response content:", content);
+      console.log("API usage:", response.usage); // Log token usage
+      let parsedContent;
+      try {
+        parsedContent = JSON.parse(content);
+        if (
+          !parsedContent.description ||
+          !parsedContent.points ||
+          !parsedContent.companies
+        ) {
+          throw new Error("Incomplete JSON structure from OpenAI");
+        }
+      } catch (error) {
+        console.error("Error parsing OpenAI response:", error.message);
+        throw new Error("Failed to parse resume data");
+      }
+      return parsedContent;
+    } catch (error) {
+      console.error("GPTFunction error:", error.message, error.stack);
+      if (
+        error.response &&
+        error.response.status === 429 &&
+        retryCount < maxRetries
+      ) {
+        if (error.response.data?.error?.message?.includes("current quota")) {
+          console.error(
+            "Quota depleted. Regenerate API key or upgrade plan: https://platform.openai.com/account/billing"
+          );
+          throw new Error("Failed to generate resume: Quota exceeded");
+        }
+        retryCount++;
+        const delay = Math.pow(2, retryCount) * 1000;
+        console.error(
+          `Rate limit exceeded, retrying in ${delay}ms... (Attempt ${retryCount}/${maxRetries})`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return attemptApiCall();
+      }
+      throw new Error(`Failed to generate resume: ${error.message}`);
     }
-    throw new Error("Failed to generate resume");
   }
+
+  return attemptApiCall();
 }
 
 app.post("/api/resume", upload, async (req, res) => {
@@ -175,6 +216,7 @@ app.post("/api/resume", upload, async (req, res) => {
   };
 
   console.log("newEntry created:", newEntry);
+  
 
   //Prompts to pass to the gpt function
 
@@ -228,5 +270,6 @@ app.post("/api/resume", upload, async (req, res) => {
       .json({ error: "Failed to generate resume", details: error.message });
   }
 });
+
 
 app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
