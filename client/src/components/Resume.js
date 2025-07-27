@@ -12,7 +12,7 @@ const Resume = ({ result }) => {
   console.log("Resume:", result);
   // replaces the new line with a break tag
   function replaceWithBreak(text) {
-    if (typeof text !== "string") return ""; // Check if text is a string
+    if (!text || typeof text !== "string") return "N/A";
     return text.replace(/\n/g, "<br />");
   }
 
@@ -46,7 +46,7 @@ const Resume = ({ result }) => {
           <div>
             <h2 className="resumeBodyTitle">Work History</h2>
             {result.workHistory.map((work) => (
-              <p className="resumeBodyContent key={work.name}">
+              <p className="resumeBodyContent" key={work.name}>
                 <span style={{ fontWeight: "bold" }}>{work.name}</span>
                 {work.position}
               </p>

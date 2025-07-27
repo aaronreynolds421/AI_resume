@@ -216,37 +216,7 @@ app.post("/api/resume", upload, async (req, res) => {
   };
 
   console.log("newEntry created:", newEntry);
-  
 
-  //Prompts to pass to the gpt function
-
-  //const prompt1 = `I am writing a resume, my dtails are \n name: ${fullName} \n role: ${currentPosition} (${currentLength} years). \n I write in the technolegies: ${currentTechnologies}. Can you write a 100 words description for the top of the resume(first person writing)?`; //the backticks allow for multiline strings
-  // const prompt2 = `I am writing a resume, my dtails are \n name: ${fullName} \n role: ${currentPosition} (${currentLength} years). \n I write in the technolegies: ${currentTechnologies}. Can you write 10 points for a resume on what I am good at?`;
-  // const remainderText = () => {
-  //   let stringText = "";
-  ////   for (let i = 0; i < workArray.length; i++) {
-  //     stringText += ` ${workArray[i].name} as a ${workArray[i].position}.`;
-  //    }
-  //   return stringText;
-  //  }; //this loops throught the workarray and converts it into a string
-  // const prompt3 = `I am writing a resume, my dtails are \n name: ${fullName} \n role: ${currentPosition} (${currentLength} years). \n During my years I worked at ${
-  //    workArray.length
-  //  } companies. ${remainderText()} \n Can you write me 50 words for each company in numbers of my succession in the company (in first person)?`;
-  //this generates the result
-
-  // const objectives = await GPTFunction(prompt1);
-  // const kPoints = await GPTFunction(prompt2);
-  // const jobResp = await GPTFunction(promtp3);
-
-  // creates an object
-
-  // const chatgptData = { objectives, kPoints, jobResp };
-  ///  const data = { ...newEntry, ...chatgptData };
-  //database.push(data);
-
-  // res.json({
-  //   message: "Request successful!",
-  //   data,
   try {
     console.log("Calling GPTFunction");
     const chatgptData = await GPTFunction({
@@ -270,6 +240,5 @@ app.post("/api/resume", upload, async (req, res) => {
       .json({ error: "Failed to generate resume", details: error.message });
   }
 });
-
 
 app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
